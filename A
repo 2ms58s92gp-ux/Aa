@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Youngjae's Phone Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #0b0b0e; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif; }
+    
+    .phone {
+      width: 390px; height: 844px; background: #000; border-radius: 48px; position: relative;
+      overflow: hidden; border: 10px solid #28282b; box-shadow: 0 25px 60px rgba(0,0,0,0.85);
+      display: flex; flex-direction: column;
+    }
+    
+    .dynamic-island {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 32px; background: #000; border-radius: 20px; z-index: 1000;
+    }
+
+    .screen { position: absolute; inset: 0; display: none; flex-direction: column; z-index: 1; }
+    .screen.active { display: flex; }
+
+    /* Status Bar */
+    .status-bar {
+      height: 48px; padding: 14px 24px 0 24px; display: flex; justify-content: space-between;
+      color: #fff; font-size: 14px; font-weight: 600; z-index: 999;
+    }
+
+    /* 1. LOCK SCREEN */
+    #lock-screen {
+      background: url('weverse_20260902172423_3305930764_6652f9.jpg') center/cover no-repeat;
+      justify-content: space-between; padding-bottom: 40px; cursor: pointer; color: #fff;
+    }
+    .lock-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.25); z-index: 0; }
+    .lock-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .clock-date { font-size: 17px; font-weight: 500; margin-top: 15px; opacity: 0.9; }
+    .clock-time { font-size: 76px; font-weight: 700; line-height: 1; margin-top: 4px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    .dday-widget {
+      background: rgba(255, 255, 255, 0.22); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+      padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-top: 14px;
+      letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.2);
+    }
+    .lock-notif {
+      width: 90%; background: rgba(255, 255, 255, 0.28); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+      border-radius: 22px; padding: 14px 16px; margin-top: 30px; text-align: left; color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    }
+    .notif-top { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+    .notif-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+    .notif-text { font-size: 13.5px; opacity: 0.95; line-height: 1.3; }
+
+    /* 2. HOME SCREEN */
+    #home-screen {
+      background: url('IMG_2310_6652f9.jpeg') center/cover no-repeat;
+      padding: 0 16px; justify-content: space-between; position: relative;
+    }
+    .home-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.2); z-index: 0; }
+    .home-content { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 40px; }
+    .widgets-container { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+    .widget-card {
+      background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px; padding: 16px; color: #fff; height: 140px; border: 1px solid rgba(255,255,255,0.25);
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 30px; }
+    .app-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+    .app-icon {
+      width: 62px; height: 62px; border-radius: 15px; display: flex; justify-content: center;
+      align-items: center; font-size: 28px; color: #fff; position: relative;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .kakaotalk-icon { background: #fee500; color: #3c1e1e; font-weight: 900; font-size: 22px; }
+    .calendar-icon { background: #fff; color: #ff3b30; font-weight: bold; flex-direction: column; }
+    .app-label { color: #fff; font-size: 11px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    .badge {
+      position: absolute; top: -4px; right: -4px; background: #ff3b30; color: #fff;
+      font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; border: 2px solid #fee500;
+    }
+
+    /* 3. KAKAOTALK LIST SCREEN */
+    #list-screen { background: #fff; color: #000; }
+    .list-header {
+      padding: 18px 20px 12px; font-size: 24px; font-weight: 800; border-bottom: 1px solid #f0f0f0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .chat-list { flex: 1; overflow-y: auto; }
+    .chat-row { display: flex; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #f9f9f9; cursor: pointer; align-items: center; }
+    .avatar-img { width: 52px; height: 52px; border-radius: 20px; object-fit: cover; flex-shrink: 0; }
+    .avatar-placeholder {
+      width: 52px; height: 52px; border-radius: 20px; background: #e6ecf2; display: flex;
+      justify-content: center; align-items: center; font-weight: bold; color: #728194; font-size: 18px; flex-shrink: 0;
+    }
+    .chat-info { flex: 1; min-width: 0; }
+    .chat-top-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .chat-name { font-weight: 700; font-size: 16px; color: #191919; }
+    .chat-time { font-size: 12px; color: #a0a0a0; }
+    .chat-preview { font-size: 13.5px; color: #707070; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* 4. CHAT ROOM SCREEN */
+    #chat-screen { background: #abc1d1; }
+    .chat-header {
+      background: #abc1d1; padding: 12px 16px; display: flex; justify-content: space-between;
+      align-items: center; font-weight: bold; border-bottom: 1px solid rgba(0,0,0,0.05); z-index: 10;
+    }
+    .header-title { font-size: 17px; font-weight: 700; color: #191919; }
+    .icon-btn { font-size: 20px; cursor: pointer; color: #191919; }
+    .chat-body { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    
+    .date-divider {
+      text-align: center; font-size: 11px; color: #fff; background: rgba(0, 0, 0, 0.15);
+      padding: 4px 14px; border-radius: 12px; align-self: center; margin: 8px 0;
+    }
+    
+    .msg-wrapper { display: flex; gap: 8px; max-width: 82%; }
+    .msg-wrapper.left { align-self: flex-start; }
+    .msg-wrapper.right { align-self: flex-end; flex-direction: row-reverse; }
+    
+    .msg-profile { width: 40px; height: 40px; border-radius: 15px; object-fit: cover; flex-shrink: 0; }
+    .msg-content { display: flex; flex-direction: column; }
+    .msg-sender-name { font-size: 12px; color: #4e5968; margin-bottom: 4px; margin-left: 2px; }
+    .msg-row { display: flex; align-items: flex-end; gap: 5px; }
+    .msg-wrapper.right .msg-row { flex-direction: row-reverse; }
+    
+    .bubble {
+      padding: 9px 13px; border-radius: 15px; font-size: 14px; line-height: 1.45;
+      word-break: break-all; color: #000; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .left .bubble { background: #ffffff; border-top-left-radius: 3px; }
+    .right .bubble { background: #fee500; border-top-right-radius: 3px; }
+    .msg-time-stamp { font-size: 10px; color: #556270; align-self: flex-end; margin-bottom: 2px; white-space: nowrap; }
+
+    .chat-input-bar {
+      background: #ffffff; padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .chat-input {
+      flex: 1; background: #f2f3f5; border: none; padding: 10px 14px; border-radius: 20px;
+      font-size: 14px; outline: none;
+    }
+    .send-btn { background: #fee500; border: none; padding: 8px 14px; border-radius: 16px; font-weight: bold; cursor: pointer; font-size: 13px; }
+
+    /* 5. PHOTOS APP SCREEN */
+    #photos-screen { background: #fff; color: #000; }
+    .photos-header {
+      padding: 16px 20px; font-size: 22px; font-weight: 800; border-bottom: 1px solid #f0f0f0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .photo-grid {
+      flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px;
+    }
+    .photo-grid-item {
+      width: 100%; aspect-ratio: 1 / 1; object-fit: cover; cursor: pointer;
+    }
+
+    /* 6. CALENDAR APP SCREEN */
+    #calendar-screen { background: #1c1c1e; color: #fff; }
+    .cal-header {
+      padding: 16px 20px; border-bottom: 1px solid #2c2c2e; display: flex; justify-content: space-between; align-items: center;
+    }
+    .cal-title { font-size: 20px; font-weight: bold; color: #ff3b30; }
+    .cal-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 20px; }
+    .cal-month { font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+    .event-card {
+      background: #2c2c2e; border-radius: 16px; padding: 14px 18px; border-left: 4px solid #ff3b30;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .event-card.special { border-left-color: #ff9500; }
+    .event-card.friend { border-left-color: #30d158; }
+    .event-date { font-size: 12px; color: #8e8e93; font-weight: 600; }
+    .event-title { font-size: 16px; font-weight: 700; color: #fff; }
+    .event-desc { font-size: 13px; color: #aeaeb2; }
+    
+    /* Photo Fullscreen Modal */
+    #photo-modal {
+      position: absolute; inset: 0; background: #000; z-index: 3000; display: none;
+      flex-direction: column; justify-content: space-between;
+    }
+    #photo-modal.active { display: flex; }
+    .modal-header { padding: 16px; display: flex; justify-content: space-between; color: #fff; font-size: 18px; z-index: 10; }
+    .modal-img-wrapper { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .modal-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    /* 7. INCOMING CALL OVERLAY */
+    #call-overlay {
+      position: absolute; inset: 0; background: rgba(15, 15, 20, 0.92); backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px); z-index: 2000; display: none; flex-direction: column;
+      justify-content: space-between; padding: 80px 30px 60px 30px; color: #fff; text-align: center;
+    }
+    #call-overlay.active { display: flex; }
+    .call-caller-title { font-size: 14px; opacity: 0.7; letter-spacing: 1px; }
+    .call-caller-name { font-size: 32px; font-weight: 700; margin-top: 8px; }
+    .call-actions { display: flex; justify-content: space-around; width: 100%; }
+    .call-btn {
+      width: 72px; height: 72px; border-radius: 50%; display: flex; justify-content: center;
+      align-items: center; font-size: 30px; cursor: pointer; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .decline-btn { background: #ff3b30; }
+    .accept-btn { background: #34c759; }
+  </style>
+</head>
+<body>
+
+  <div class="phone">
+    <div class="dynamic-island"></div>
+
+    <!-- 1. LOCK SCREEN -->
+    <div id="lock-screen" class="screen active" onclick="showScreen('home-screen')">
+      <div class="lock-overlay"></div>
+      <div class="status-bar" style="position:relative; z-index:2;"><span>11:01</span><span>65%</span></div>
+      <div class="lock-content">
+        <div class="clock-date">11월 13일 금요일</div>
+        <div class="clock-time">11:01</div>
+        <div class="dday-widget">♥︎ +426</div>
+        
+        <div class="lock-notif">
+          <div class="notif-top"><span>카카오톡</span><span>지금</span></div>
+          <div class="notif-title">도훈이</div>
+          <div class="notif-text">지금 너네 집 앞으로 갈게</div>
+        </div>
+      </div>
+      <div style="position:relative; z-index:2; text-align:center; font-size:12px; opacity:0.7;">터치하여 잠금 해제</div>
+    </div>
+
+    <!-- 2. HOME SCREEN -->
+    <div id="home-screen" class="screen">
+      <div class="home-overlay"></div>
+      <div class="status-bar" style="position:relative; z-index:2;"><span>11:01</span><span>65%</span></div>
+      <div class="home-content">
+        <div class="widgets-container">
+          <div class="widget-card">
+            <span style="font-size:12px; opacity:0.8;">날씨</span>
+            <div>
+              <div style="font-size:26px; font-weight:bold;">18°</div>
+              <div style="font-size:11px; opacity:0.8; margin-top:2px;">서울시 · 비 90%</div>
+            </div>
+          </div>
+          <div class="widget-card" style="background: rgba(255, 45, 85, 0.35);">
+            <span style="font-size:12px; opacity:0.9;">🎵 음악</span>
+            <div>
+              <div style="font-size:14px; font-weight:bold;">생각을 멈추다 보면</div>
+              <div style="font-size:11px; opacity:0.8; margin-top:2px;">최유리</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-grid">
+          <div class="app-item" onclick="showScreen('list-screen')">
+            <div class="app-icon kakaotalk-icon">
+              TALK
+              <span class="badge">5</span>
+            </div>
+            <span class="app-label">카카오톡</span>
+          </div>
+          <div class="app-item" onclick="showScreen('calendar-screen')">
+            <div class="app-icon calendar-icon">
+              <span style="font-size:10px; color:#ff3b30; text-transform:uppercase;">11월</span>
+              <span style="font-size:22px; color:#000; font-weight:bold;">13</span>
+            </div>
+            <span class="app-label">캘린더</span>
+          </div>
+          <div class="app-item" onclick="showScreen('photos-screen')"><div class="app-icon" style="background:#ff9500;">🖼️</div><span class="app-label">사진</span></div>
+          <div class="app-item"><div class="app-icon" style="background:#5856d6;">⚙️</div><span class="app-label">설정</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. KAKAOTALK CHAT LIST SCREEN -->
+    <div id="list-screen" class="screen">
+      <div class="status-bar" style="color:#000;"><span>11:01</span><span>65%</span></div>
+      <div class="list-header">
+        <span onclick="showScreen('home-screen')" style="cursor:pointer; font-size:18px;">❮ 홈</span>
+        <span>채팅</span>
+        <span style="font-size:18px;">🔍</span>
+      </div>
+      
+      <div class="chat-list">
+        <div class="chat-row" onclick="openChat('정환이 형♥')">
+          <div class="avatar-placeholder" style="background:#ffe6e6; color:#ff4d4d;">♥</div>
+          <div class="chat-info">
+            <div class="chat-top-row"><span class="chat-name">정환이 형♥</span><span class="chat-time">오후 10:15</span></div>
+            <div class="chat-preview">내가 너를 못 믿는게 아니잖아...</div>
+          </div>
+        </div>
+
+        <div class="chat-row" onclick="openChat('도훈이')">
+          <div class="avatar-placeholder">도훈</div>
+          <div class="chat-info">
+            <div class="chat-top-row"><span class="chat-name">도훈이</span><span class="chat-time">오전 1:37</span></div>
+            <div class="chat-preview">이제 나 좀 봐주면 안돼?</div>
+          </div>
+        </div>
+
+        <div class="chat-row" onclick="openChat('지훈')">
+          <img class="avatar-img" src="IMG_3124_703c79.jpeg" alt="지훈">
+          <div class="chat-info">
+            <div class="chat-top-row"><span class="chat-name">지훈</span><span class="chat-time">오후 10:59</span></div>
+            <div class="chat-preview">내렸어예에ㅔㅔ 장난인거 알지예에ㅔ??</div>
+          </div>
+        </div>
+
+        <div class="chat-row" onclick="openChat('경민')">
+          <img class="avatar-img" src="IMG_3703_703c79.jpeg" alt="경민">
+          <div class="chat-info">
+            <div class="chat-top-row"><span class="chat-name">경민</span><span class="chat-time">어제</span></div>
+            <div class="chat-preview">영재형 과제 자료 다 보냈어요!</div>
+          </div>
+        </div>
+
+        <div class="chat-row" onclick="openChat('한진')">
+          <img class="avatar-img" src="IMG_3704_703c79.jpeg" alt="한진">
+          <div class="chat-info">
+            <div class="chat-top-row"><span class="chat-name">한진</span><span class="chat-time">목요일</span></div>
+            <div class="chat-preview">형 저번에 말한 그 카페 주소 좀 알려주세요!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. KAKAOTALK CHAT ROOM SCREEN -->
+    <div id="chat-screen" class="screen">
+      <div class="status-bar" style="color:#000;"><span>11:01</span><span>65%</span></div>
+      <div class="chat-header">
+        <span class="icon-btn" onclick="showScreen('list-screen')">❮</span>
+        <span class="header-title" id="chat-title">대화방</span>
+        <span class="icon-btn">≡</span>
+      </div>
+      
+      <div class="chat-body" id="chat-body"></div>
+
+      <div class="chat-input-bar">
+        <span style="font-size:20px; color:#777; cursor:pointer;">+</span>
+        <input type="text" id="message-input" class="chat-input" placeholder="메시지 입력" onkeypress="handleKeyPress(event)">
+        <button class="send-btn" onclick="sendMessage()">전송</button>
+      </div>
+    </div>
+
+    <!-- 5. PHOTOS APP SCREEN -->
+    <div id="photos-screen" class="screen">
+      <div class="status-bar" style="color:#000;"><span>11:01</span><span>65%</span></div>
+      <div class="photos-header">
+        <span onclick="showScreen('home-screen')" style="cursor:pointer; font-size:18px;">❮ 홈</span>
+        <span>보관함</span>
+        <span style="width:20px;"></span>
+      </div>
+      
+      <div class="photo-grid">
+        <img class="photo-grid-item" src="IMG_3504_70afe5.jpeg" alt="사진1" onclick="openPhotoModal('IMG_3504_70afe5.jpeg')">
+        <img class="photo-grid-item" src="IMG_3507_70afe5.jpg" alt="사진2" onclick="openPhotoModal('IMG_3507_70afe5.jpg')">
+        <img class="photo-grid-item" src="IMG_3434_70afe5.jpeg" alt="사진3" onclick="openPhotoModal('IMG_3434_70afe5.jpeg')">
+        <img class="photo-grid-item" src="IMG_3166_70afe5.jpg" alt="사진4" onclick="openPhotoModal('IMG_3166_70afe5.jpg')">
+        <img class="photo-grid-item" src="IMG_3132_70afe5.jpg" alt="사진5" onclick="openPhotoModal('IMG_3132_70afe5.jpg')">
+        <img class="photo-grid-item" src="IMG_3122_70afe5.jpeg" alt="사진6" onclick="openPhotoModal('IMG_3122_70afe5.jpeg')">
+        <img class="photo-grid-item" src="1D689E1E-425D-432C-A048-3153CB9F9AB6_70afe5.jpeg" alt="사진7" onclick="openPhotoModal('1D689E1E-425D-432C-A048-3153CB9F9AB6_70afe5.jpeg')">
+        <img class="photo-grid-item" src="weverse_20260911172811_1456058667_70afe5.jpg" alt="사진8" onclick="openPhotoModal('weverse_20260911172811_1456058667_70afe5.jpg')">
+        <img class="photo-grid-item" src="weverse_20260902172423_3305930764_70afe5.jpg" alt="사진9" onclick="openPhotoModal('weverse_20260902172423_3305930764_70afe5.jpg')">
+        <img class="photo-grid-item" src="IMG_2734_70afe5.jpg" alt="사진10" onclick="openPhotoModal('IMG_2734_70afe5.jpg')">
+      </div>
+    </div>
+
+    <!-- 6. CALENDAR APP SCREEN -->
+    <div id="calendar-screen" class="screen">
+      <div class="status-bar" style="color:#fff;"><span>11:01</span><span>65%</span></div>
+      <div class="cal-header">
+        <span onclick="showScreen('home-screen')" style="cursor:pointer; font-size:18px; color:#ff3b30;">❮ 홈</span>
+        <span class="cal-title">캘린더</span>
+        <span style="font-size:20px; color:#ff3b30;">+</span>
+      </div>
+      
+      <div class="cal-body">
+        <div class="cal-month">2026년 11월</div>
+        
+        <div class="event-card special">
+          <div class="event-date">11월 7일 (토) · 하루 종일</div>
+          <div class="event-title">🎂 정환이 형 Birthday ♥</div>
+          <div class="event-desc">선물 준비하기 / 저녁 식사 예약 (6:30 PM)</div>
+        </div>
+
+        <div class="event-card">
+          <div class="event-date">11월 14일 (토) · 오후 2:00</div>
+          <div class="event-title">🎨 정환이 형이랑 미술관 데이트</div>
+          <div class="event-desc">전시회 관람 후 저녁 식사 예약</div>
+        </div>
+
+        <div class="event-card friend">
+          <div class="event-date">11월 18일 (수) · 오후 7:00</div>
+          <div class="event-title">☕ 도훈이랑 카페 약속</div>
+          <div class="event-desc">동네 카페에서 이야기하기</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULLSCREEN PHOTO MODAL -->
+    <div id="photo-modal">
+      <div class="modal-header">
+        <span onclick="closePhotoModal()" style="cursor:pointer;">❮ 닫기</span>
+      </div>
+      <div class="modal-img-wrapper">
+        <img id="modal-target-img" class="modal-img" src="" alt="확대사진">
+      </div>
+    </div>
+
+    <!-- 7. INCOMING CALL OVERLAY -->
+    <div id="call-overlay">
+      <div>
+        <div class="call-caller-title">카카오 페이스톡 / 전화</div>
+        <div class="call-caller-name">정환이 형♥</div>
+      </div>
+      <div class="call-actions">
+        <div class="call-btn decline-btn" onclick="closeCall()">✕</div>
+        <div class="call-btn accept-btn" onclick="closeCall()">📞</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentChatTarget = '';
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function openPhotoModal(imgSrc) {
+      document.getElementById('modal-target-img').src = imgSrc;
+      document.getElementById('photo-modal').classList.add('active');
+    }
+
+    function closePhotoModal() {
+      document.getElementById('photo-modal').classList.remove('active');
+    }
+
+    function openChat(name) {
+      currentChatTarget = name;
+      document.getElementById('chat-title').innerText = name;
+      const body = document.getElementById('chat-body');
+      body.innerHTML = '';
+
+      if (name === '정환이 형♥') {
+        body.innerHTML = `
+          <div class="date-divider">2026년 11월 13일 금요일</div>
+          ${renderLeftMsg('정환이 형♥', '영재야', '오후 10:06')}
+          ${renderRightMsg('왜요?', '오후 10:07')}
+          ${renderLeftMsg('정환이 형♥', '김도훈 좀 그만 만나면 안돼?', '오후 10:07')}
+          ${renderRightMsg('그냥 친구라고 했잖아요...', '오후 10:09')}
+          ${renderLeftMsg('정환이 형♥', '말만 친구지 딱봐도 걔가 너 좋아하잖아', '오후 10:10')}
+          ${renderLeftMsg('정환이 형♥', '한지훈 스토리는 뭔데...', '오후 10:11')}
+          ${renderLeftMsg('정환이 형♥', '너넨 친구끼리 뽀뽀도 해?', '오후 10:11')}
+          ${renderLeftMsg('정환이 형♥', '그게 친구야?', '오후 10:11')}
+          ${renderRightMsg('형', '오후 10:14')}
+          ${renderRightMsg('화난 건 알겠는데 말을 왜 그렇게 해요...', '오후 10:14')}
+          ${renderRightMsg('형 저 못 믿어요?', '오후 10:15')}
+          ${renderLeftMsg('정환이 형♥', '내가 너를 못 믿는게 아니잖아...', '오후 10:15')}
+        `;
+      } else if (name === '도훈이') {
+        body.innerHTML = `
+          ${renderRightMsg('도훈아', '오후 10:53')}
+          ${renderRightMsg('자?', '오후 10:53')}
+          ${renderLeftMsg('도훈이', '또 싸웠어?', '오후 10:54')}
+          ${renderRightMsg('아니 별건 아닌데', '오후 10:54')}
+          ${renderRightMsg('잠깐 만날래?', '오후 10:55')}
+          ${renderLeftMsg('도훈이', '지금 너네 집 앞으로 갈게', '오후 10:57')}
+          <div class="date-divider">2026년 11월 14일 토요일</div>
+          ${renderLeftMsg('도훈이', '영재', '오전 1:31')}
+          ${renderLeftMsg('도훈이', '나 언제까지 기다려야 돼?', '오전 1:32')}
+          ${renderLeftMsg('도훈이', '맨날 기다리게 하고 나쁘다 영재', '오전 1:33')}
+          ${renderLeftMsg('도훈이', '이제 나 좀 봐주면 안돼?', '오전 1:37')}
+        `;
+      } else if (name === '지훈') {
+        body.innerHTML = `
+          <div class="date-divider">오늘</div>
+          ${renderRightMsg('지훈아 너 아까 올린 인스타 스토리 좀 내려주라', '오후 10:56')}
+          ${renderLeftMsgImg('지훈', 'IMG_3124_703c79.jpeg', '내렸어예에ㅔㅔ 장난인거 알지예에ㅔ??', '오후 10:58')}
+          ${renderRightMsg('응 고마워 ㅋㅋㅋ', '오후 10:59')}
+        `;
+      } else if (name === '경민') {
+        body.innerHTML = `
+          <div class="date-divider">어제</div>
+          ${renderLeftMsgImg('경민', 'IMG_3703_703c79.jpeg', '영재형 과제 자료 정리해서 다 보냈어요!', '오후 4:20')}
+          ${renderRightMsg('오 확인했어 경민아 고마워!', '오후 4:25')}
+        `;
+      } else if (name === '한진') {
+        body.innerHTML = `
+          <div class="date-divider">목요일</div>
+          ${renderLeftMsgImg('한진', 'IMG_3704_703c79.jpeg', '형 저번에 말한 그 분위기 좋은 카페 주소 좀 알려주세요!', '오후 2:10')}
+        `;
+      }
+
+      showScreen('chat-screen');
+      setTimeout(() => { body.scrollTop = body.scrollHeight; }, 50);
+    }
+
+    function renderLeftMsg(sender, text, time) {
+      return `
+        <div class="msg-wrapper left">
+          <div class="avatar-placeholder" style="width:36px; height:36px; border-radius:14px; font-size:12px;">${sender[0]}</div>
+          <div class="msg-content">
+            <span class="msg-sender-name">${sender}</span>
+            <div class="msg-row">
+              <div class="bubble left">${text}</div>
+              <span class="msg-time-stamp">${time}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLeftMsgImg(sender, imgSrc, text, time) {
+      return `
+        <div class="msg-wrapper left">
+          <img class="msg-profile" src="${imgSrc}" alt="${sender}">
+          <div class="msg-content">
+            <span class="msg-sender-name">${sender}</span>
+            <div class="msg-row">
+              <div class="bubble left">${text}</div>
+              <span class="msg-time-stamp">${time}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRightMsg(text, time) {
+      return `
+        <div class="msg-wrapper right">
+          <div class="msg-content">
+            <div class="msg-row">
+              <div class="bubble right">${text}</div>
+              <span class="msg-time-stamp">${time}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendMessage();
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const body = document.getElementById('chat-body');
+      const now = new Date();
+      const timeStr = `오후 ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      body.innerHTML += renderRightMsg(text, timeStr);
+      input.value = '';
+      body.scrollTop = body.scrollHeight;
+
+      if (currentChatTarget === '정환이 형♥') {
+        const breakupKeywords = ['헤어지', '그만', '헤어져', '끝내', '그만만나'];
+        const isBreakup = breakupKeywords.some(kw => text.includes(kw));
+
+        if (isBreakup) {
+          setTimeout(() => {
+            document.getElementById('call-overlay').classList.add('active');
+          }, 1200);
+        }
+      }
+    }
+
+    function closeCall() {
+      document.getElementById('call-overlay').classList.remove('active');
+    }
+  </script>
+</body>
+</html>
